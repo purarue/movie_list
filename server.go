@@ -176,6 +176,7 @@ func tmdbSearch(query string) ([]byte, error) {
 			<td>
 			<button hx-post="add"
 				hx-swap=outerHTML
+				hx-confirm="{{ print "add '" $element.Name "'?"}}"
 				hx-trigger="click throttle:1000"
 				hx-include="{{ print "#data" $element.Index }}">
 					+Add
@@ -268,25 +269,23 @@ func Server(port int) error {
 	<div class="grid">
 		{{ range $element := $chunk }}
 		<article>
-			<header><img src="{{ $element.Image }}"</header>
+			<header><img src="{{ $element.Image }}" /></header>
 			<div class="hidden" id="{{ print "watched" $element.Added }}">
 				<input name="id" value="{{ $element.Added }}" />
 			</div>
+			<div>
 			<p>
-			{{ $element.Name }}
+				{{ $element.Name }}
 			</p>
-			<p>
-				<a href="{{ $element.URL }}">More Info</a>
-			</p>
-			<p>
-				<button class="contrast"
+			<a class="contrast" href="{{ $element.URL }}"><button role="link" class="contrast">More Info</button></a>
+			<button class="contrast"
 				hx-include="{{ print "#watched" $element.Added }}"
 				hx-post="watched"
 				hx-swap=outerHTML
 				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched?" }}"
 				/>✔️
 				</button>
-			</footer>
+			 </div>
 		</article>
 		{{ end }}
 		</div>

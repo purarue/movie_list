@@ -1,6 +1,6 @@
 module github.com/purarue/movie_list
 
-go 1.26.5
+go 1.24
 
 require github.com/cyruzin/golang-tmdb v1.9.4
 

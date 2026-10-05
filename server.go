@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 	"text/template"
@@ -32,10 +33,48 @@ type searchResult struct {
 
 type Item struct {
 	Name    string
+	Status  string
 	Image   string
 	URL     string
 	Watched bool
 	Added   int64
+}
+
+func coerceStatus(val string) string {
+	switch val {
+	case "watching":
+		return "watching"
+	case "completed":
+		return "completed"
+	}
+	return "plan_to_watch"
+}
+
+func statusToOrder(val string) int {
+	switch val {
+	case "watching":
+		return 1
+	case "completed":
+		return 3
+	case "plan_to_watch":
+		return 2
+	}
+	return 99
+}
+
+func validateItem(item *Item) (*Item, error) {
+	newStatus := coerceStatus(item.Status)
+	if newStatus == item.Status {
+		return item, nil
+	}
+	// TODO: proxy images? maybe not worth it for this amount of usage
+	return &Item{
+		Name:    item.Name,
+		Status:  newStatus,
+		Image:   item.Image,
+		URL:     item.URL,
+		Added:   item.Added,
+	}, nil
 }
 
 func loadItems(file string) ([]Item, error) {
@@ -55,7 +94,18 @@ func loadItems(file string) ([]Item, error) {
 	if err != nil {
 		return nil, err
 	}
-	return items, nil
+	var validated []Item
+	for _, it := range items {
+		vit, err := validateItem(&it)
+		if err != nil {
+			return nil, err
+		}
+		validated = append(validated, *vit)
+	}
+	sort.Slice(validated, func(i, j int) bool {
+		return statusToOrder(validated[i].Status) < statusToOrder(validated[j].Status)
+	})
+	return validated, nil
 }
 
 func CopyFile(srcpath, dstpath string) (err error) {
@@ -249,8 +299,8 @@ func Server(port int) error {
 			Name:    r.FormValue("name"),
 			Image:   r.FormValue("image"),
 			URL:     r.FormValue("url"),
+			Status:  "plan_to_watch",
 			Added:   time.Now().UnixNano(),
-			Watched: false,
 		})
 		fmt.Printf("%+v", items[len(items)-1])
 		err = dumpItems(filepath, items)
@@ -266,6 +316,7 @@ func Server(port int) error {
 
 	http.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
+		// TODO: add a dropdown/another button to mark something as 'watching'?
 		tmpl, err := template.New("items").Parse(`
 	{{ range $chunk := .Items }}
 	<div class="grid">
@@ -275,15 +326,20 @@ func Server(port int) error {
 			<header><img src="{{ $element.Image }}" /></header>
 			<div class="hidden" id="{{ print "watched" $element.Added }}">
 				<input name="id" value="{{ $element.Added }}" />
+				<input name="status" value="completed" />
 			</div>
 			<div>
 			<p>
 				{{ $element.Name }}
 			</p>
+			<p>
+			{{ if ne $element.Status "plan_to_watch" }}
+				<p><i>{{ print "Status: " $element.Status }}</i></p>
+			{{ end }}
 			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
 			<button class="contrast"
 				hx-include="{{ print "#watched" $element.Added }}"
-				hx-post="watched"
+				hx-post="mark"
 				hx-swap=outerHTML
 				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
 				/><small>✔️</small>
@@ -316,7 +372,7 @@ func Server(port int) error {
 				items = append(items, chunk)
 				chunk = make([]Item, 0)
 			}
-			if it.Watched == false {
+			if it.Status != "completed" {
 				chunk = append(chunk, it)
 			}
 		}
@@ -348,7 +404,7 @@ func Server(port int) error {
 		w.Write(buf.Bytes())
 	})
 
-	http.HandleFunc("/watched", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/mark", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		id := r.FormValue("id")
 		if id == "" {
@@ -361,8 +417,8 @@ func Server(port int) error {
 			fatalError(w, err)
 			return
 		}
-
 		idInt64 = int64(idInt)
+		status := coerceStatus(r.FormValue("status"))
 
 		lock.Lock()
 		defer lock.Unlock()
@@ -376,15 +432,15 @@ func Server(port int) error {
 		for ind, it := range items {
 			if it.Added == idInt64 {
 				items[ind] = Item{
-					Name:    it.Name,
-					Image:   it.Image,
-					URL:     it.URL,
-					Watched: true, // flip to true
-					Added:   it.Added,
+					Name:   it.Name,
+					Image:  it.Image,
+					URL:    it.URL,
+					Status: status,
+					Added:  it.Added,
 				}
 				dumpItems(filepath, items)
 				w.WriteHeader(http.StatusAccepted)
-				w.Write([]byte("Marked watched!"))
+				fmt.Fprintf(w, "Marked as %s", status)
 				return
 			}
 		}

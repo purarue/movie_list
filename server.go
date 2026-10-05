@@ -277,7 +277,7 @@ func Server(port int) error {
 			<p>
 				{{ $element.Name }}
 			</p>
-			<a class="contrast" href="{{ $element.URL }}"><button role="link" class="contrast">More Info</button></a>
+			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast">More Info</button></a>
 			<button class="contrast"
 				hx-include="{{ print "#watched" $element.Added }}"
 				hx-post="watched"

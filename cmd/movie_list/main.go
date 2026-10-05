@@ -6,5 +6,5 @@ import (
 
 func main() {
 	movie_list.InitializeClient()
-	movie_list.Server(9005)
+	movie_list.Server(9006)
 }

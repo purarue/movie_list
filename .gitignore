@@ -1,4 +1,6 @@
 *.pdf
+.env
+/movie_list
 *.json
 *.json.bkp
 # Created by https://www.toptal.com/developers/gitignore/api/go

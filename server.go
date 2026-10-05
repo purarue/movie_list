@@ -277,13 +277,13 @@ func Server(port int) error {
 			<p>
 				{{ $element.Name }}
 			</p>
-			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast">More Info</button></a>
+			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
 			<button class="contrast"
 				hx-include="{{ print "#watched" $element.Added }}"
 				hx-post="watched"
 				hx-swap=outerHTML
 				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched?" }}"
-				/>✔️
+				/><small>✔️</small>
 				</button>
 			 </div>
 		</article>

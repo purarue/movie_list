@@ -46,7 +46,7 @@
 			<input class="form-control" type="search"
 			 name="q" placeholder="Search for a movie or TV show!"
 			 type="text"
-			 hx-post="/search"
+			 hx-post="search"
 			 hx-trigger="input changed delay:1000, throttle:500ms, keyup[key=='Enter'], load"
 			 hx-target="#search-results"
 			 hx-indicator=".htmx-indicator">
@@ -56,7 +56,7 @@
 			<table id="search-results">
 			</table>
 			</div>
-			<div class="list" hx-trigger="load, itemsUpdated from:body" hx-get="/items">
+			<div class="list" hx-trigger="load, itemsUpdated from:body" hx-get="items">
 			</div>
 		</main>
   </body>

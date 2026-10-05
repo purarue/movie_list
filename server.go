@@ -174,7 +174,7 @@ func tmdbSearch(query string) ([]byte, error) {
 				<input name="image" value="{{ $element.Image }}" />
 			</div>
 			<td>
-			<button hx-post="/add"
+			<button hx-post="add"
 				hx-swap=outerHTML
 				hx-trigger="click throttle:1000"
 				hx-include="{{ print "#data" $element.Index }}">
@@ -281,7 +281,7 @@ func Server(port int) error {
 			<p>
 				<button class="contrast"
 				hx-include="{{ print "#watched" $element.Added }}"
-				hx-post="/watched"
+				hx-post="watched"
 				hx-swap=outerHTML
 				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched?" }}"
 				/>✔️

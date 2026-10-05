@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
+	"strconv"
 	"sync"
 	"text/template"
 	"time"
@@ -93,7 +95,7 @@ func dumpItems(file string, items []Item) error {
 	if err != nil {
 		return err
 	}
-	fp, err := os.OpenFile(file, os.O_CREATE|os.O_WRONLY, 0644)
+	fp, err := os.Create(file)
 	if err != nil {
 		return err
 	}
@@ -269,6 +271,7 @@ func Server(port int) error {
 	<div class="grid">
 		{{ range $element := $chunk }}
 		<article>
+			{{ if $element.Name }}
 			<header><img src="{{ $element.Image }}" /></header>
 			<div class="hidden" id="{{ print "watched" $element.Added }}">
 				<input name="id" value="{{ $element.Added }}" />
@@ -282,10 +285,13 @@ func Server(port int) error {
 				hx-include="{{ print "#watched" $element.Added }}"
 				hx-post="watched"
 				hx-swap=outerHTML
-				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched?" }}"
+				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
 				/><small>✔️</small>
 				</button>
 			 </div>
+			{{ else }}
+			<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
+			{{ end }}
 		</article>
 		{{ end }}
 		</div>
@@ -296,6 +302,8 @@ func Server(port int) error {
 			return
 		}
 
+		gridWidth := 4
+
 		lock.Lock()
 		defer lock.Unlock()
 		allItems, err := loadItems(filepath)
@@ -304,7 +312,7 @@ func Server(port int) error {
 		var chunk []Item
 		for _, it := range allItems {
 			// if we have 4 items, move values from chunk and reset
-			if len(chunk) == 4 {
+			if len(chunk) == gridWidth {
 				items = append(items, chunk)
 				chunk = make([]Item, 0)
 			}
@@ -314,6 +322,14 @@ func Server(port int) error {
 		}
 		// add last chunk if not empty
 		if len(chunk) > 0 {
+			// if there's anything, pad with extra items to make
+			// grid line up nicely
+			for {
+				if len(chunk) >= gridWidth {
+					break
+				}
+				chunk = append(chunk, Item{})
+			}
 			items = append(items, chunk)
 		}
 		if err != nil {
@@ -334,12 +350,46 @@ func Server(port int) error {
 
 	http.HandleFunc("/watched", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
+		id := r.FormValue("id")
+		if id == "" {
+			fatalError(w, errors.New("No id passed to mark complete"))
+			return
+		}
+		var idInt64 int64
+		idInt, err := strconv.Atoi(id)
+		if err != nil {
+			fatalError(w, err)
+			return
+		}
+
+		idInt64 = int64(idInt)
+
 		lock.Lock()
 		defer lock.Unlock()
-		w.WriteHeader(http.StatusNotImplemented)
-		w.Write([]byte("I haven't implemented this yet!"))
-		// TODO: load files, find the value with the matching Id == After value (this uses nanosecond epoch time as ID)
-		// and flip the value in that to true
+		filepath := "data.json"
+		items, err := loadItems(filepath)
+		if err != nil {
+			fatalError(w, err)
+			return
+		}
+
+		for ind, it := range items {
+			if it.Added == idInt64 {
+				items[ind] = Item{
+					Name:    it.Name,
+					Image:   it.Image,
+					URL:     it.URL,
+					Watched: true, // flip to true
+					Added:   it.Added,
+				}
+				dumpItems(filepath, items)
+				w.WriteHeader(http.StatusAccepted)
+				w.Write([]byte("Marked watched!"))
+				return
+			}
+		}
+
+		fatalError(w, fmt.Errorf("Couldn't find a value that matched the ID %d", idInt64))
 	})
 
 	fmt.Fprintf(os.Stderr, "listening on port %d\n", port)

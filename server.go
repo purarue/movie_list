@@ -195,8 +195,9 @@ func tmdbSearch(query string) ([]byte, error) {
 			data = "<pre>Type: TV Show"
 		}
 		if date != "" {
-			data = fmt.Sprintf("%s<br />Released: %s</pre>", data, date)
+			data = fmt.Sprintf("%s<br />Released: %s", data, date)
 		}
+		data = data + "</pre>"
 		rendered = append(rendered, &searchResult{
 			Index:     i,
 			Image:     tmdb.GetImageURL(res.PosterPath, tmdb.Original),

@@ -30,7 +30,8 @@
         display: none;
       }
 			.logo {
-				max-width: 128px;
+				padding-left: 1rem;
+				max-width: 64px;
 			}
     </style>
 		<link rel="icon" type="image/x-icon" href="{{ .Favicon }}" />
@@ -42,7 +43,7 @@
   <body>
     <main class="container">
 			<div>
-				<img "src={{ .Favicon }}" class="logo"/>
+				<img src="{{ .Favicon }}" class="logo"/>
 				<button
 					hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);"
 				>

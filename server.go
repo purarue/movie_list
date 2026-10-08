@@ -69,11 +69,11 @@ func validateItem(item *Item) (*Item, error) {
 	}
 	// TODO: proxy images? maybe not worth it for this amount of usage
 	return &Item{
-		Name:    item.Name,
-		Status:  newStatus,
-		Image:   item.Image,
-		URL:     item.URL,
-		Added:   item.Added,
+		Name:   item.Name,
+		Status: newStatus,
+		Image:  item.Image,
+		URL:    item.URL,
+		Added:  item.Added,
 	}, nil
 }
 
@@ -103,7 +103,14 @@ func loadItems(file string) ([]Item, error) {
 		validated = append(validated, *vit)
 	}
 	sort.Slice(validated, func(i, j int) bool {
-		return statusToOrder(validated[i].Status) < statusToOrder(validated[j].Status)
+		left := statusToOrder(validated[i].Status)
+		right := statusToOrder(validated[j].Status)
+		// if they're the same, reverse order so things added recently show at the top
+		if left == right {
+			return validated[i].Added > validated[j].Added
+		}
+		// otherwise order watching before plan_to_watch
+		return left < right
 	})
 	return validated, nil
 }
@@ -297,11 +304,11 @@ func Server(port int) error {
 			return
 		}
 		items = append(items, Item{
-			Name:    r.FormValue("name"),
-			Image:   r.FormValue("image"),
-			URL:     r.FormValue("url"),
-			Status:  "plan_to_watch",
-			Added:   time.Now().UnixNano(),
+			Name:   r.FormValue("name"),
+			Image:  r.FormValue("image"),
+			URL:    r.FormValue("url"),
+			Status: "plan_to_watch",
+			Added:  time.Now().UnixNano(),
 		})
 		fmt.Printf("%+v", items[len(items)-1])
 		err = dumpItems(filepath, items)

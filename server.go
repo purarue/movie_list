@@ -285,7 +285,6 @@ func Server(port int, favicon string) error {
 			}
 			w.WriteHeader(http.StatusOK)
 			w.Write(buf.Bytes())
-			w.Write(indexData)
 		})
 
 	// start server

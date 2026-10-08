@@ -446,7 +446,11 @@ func Server(port int) error {
 					Status: status,
 					Added:  it.Added,
 				}
-				dumpItems(filepath, items)
+				err := dumpItems(filepath, items)
+				if err != nil {
+					fatalError(w, err)
+					return
+				}
 				w.WriteHeader(http.StatusAccepted)
 				fmt.Fprintf(w, "Marked as %s", status)
 				return

@@ -29,6 +29,9 @@
       .hidden {
         display: none;
       }
+			.logo {
+				max-width: 128px;
+			}
     </style>
 		<link rel="icon" type="image/x-icon" href="{{ .Favicon }}" />
     <link
@@ -38,11 +41,14 @@
   </head>
   <body>
     <main class="container">
-      <button
-        hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);"
-      >
-        + Add a Movie/TV Show
-      </button>
+			<div>
+				<img "src={{ .Favicon }}" class="logo"/>
+				<button
+					hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);"
+				>
+					+ Add
+				</button>
+			</div>
       <div id="search-ui" class="hidden">
         <br />
         <h3>Search</h3>

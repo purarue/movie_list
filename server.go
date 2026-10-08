@@ -12,7 +12,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
-	"text/template"
+	"html/template"
 	"time"
 
 	tmdb "github.com/cyruzin/golang-tmdb"
@@ -260,7 +260,7 @@ func tmdbSearch(query string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func Server(port int) error {
+func Server(port int, favicon string) error {
 	indexData, err := index.ReadFile("index.html")
 	if err != nil {
 		return err
@@ -270,6 +270,21 @@ func Server(port int) error {
 		func(w http.ResponseWriter, r *http.Request) {
 			// write index to response
 			w.Header().Set("Content-Type", "text/html")
+			tmpl, err := template.New("index").Parse(string(indexData))
+			if err != nil {
+				fatalError(w, err)
+				return
+			}
+			buf := &bytes.Buffer{}
+			err = tmpl.Execute(buf, map[string]any{
+				"Favicon": favicon,
+			})
+			if err != nil {
+				fatalError(w, err)
+				return
+			}
+			w.WriteHeader(http.StatusOK)
+			w.Write(buf.Bytes())
 			w.Write(indexData)
 		})
 

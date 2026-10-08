@@ -1,24 +1,24 @@
-<!doctype HTML>
+<!doctype html>
 <html>
   <head>
     <meta charset="utf-8" />
-		<title>Movie List</title>
+    <title>Movie List</title>
     <meta
       content="width=device-width, initial-scale=1.0, user-scalable=yes"
       name="viewport"
     />
     <style>
-			table img {
-				max-width: min(200px, 20vw);
-			}
-			article img {
-				max-width: 80vw;
-			}
-			@media screen and (min-width: 768px) {
-				article img {
-					max-width: 18vw;
-				}
-			}
+      table img {
+        max-width: min(200px, 20vw);
+      }
+      article img {
+        max-width: 80vw;
+      }
+      @media screen and (min-width: 768px) {
+        article img {
+          max-width: 18vw;
+        }
+      }
       pre {
         white-space: pre-wrap;
         white-space: -moz-pre-wrap;
@@ -26,9 +26,9 @@
         white-space: -o-pre-wrap;
         word-wrap: break-word;
       }
-			.hidden {
-				display: none
-			}
+      .hidden {
+        display: none;
+      }
     </style>
     <link
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
@@ -36,33 +36,41 @@
     />
   </head>
   <body>
-		<main class="container">
-			<button
-				hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);">+ Add a Movie/TV Show</button> 
-		<div id="search-ui" class="hidden">
-			<br />
-			<h3>
-				Search
-			</h3>
-			<input class="form-control" type="search"
-			 name="q" placeholder="Search for a movie or TV show!"
-			 type="text"
-			 hx-post="search"
-			 hx-trigger="input changed delay:1000, throttle:500ms, keyup[key=='Enter'], load"
-			 hx-target="#search-results"
-			 hx-indicator=".htmx-indicator">
-			<span class="htmx-indicator" aria-busy="true">
-				Loading...
-			 </span>
-			<table id="search-results">
-			</table>
-			</div>
-			<div class="list" hx-trigger="load, itemsUpdated from:body" hx-get="items">
-				<span class="htmx-indicator" aria-busy="true">
-					Loading...
-				 </span>
-			</div>
-		</main>
+    <main class="container">
+      <button
+        hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);"
+      >
+        + Add a Movie/TV Show
+      </button>
+      <div id="search-ui" class="hidden">
+        <br />
+        <h3>Search</h3>
+        <input
+          class="form-control"
+          type="search"
+          name="q"
+          placeholder="Search for a movie or TV show!"
+          type="text"
+          hx-post="search"
+          hx-trigger="input changed delay:1000, throttle:500ms, keyup[key=='Enter'], load"
+          hx-target="#search-results"
+          hx-indicator=".htmx-indicator"
+        />
+        <span class="htmx-indicator" aria-busy="true"> Loading... </span>
+        <table id="search-results"></table>
+      </div>
+      <div
+        class="list"
+        hx-trigger="load, itemsUpdated from:body"
+        hx-get="items"
+      >
+        <span class="htmx-indicator" aria-busy="true"> Loading... </span>
+      </div>
+    </main>
   </body>
-  <script src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js" integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc" crossorigin="anonymous"></script>
+  <script
+    src="https://cdn.jsdelivr.net/npm/htmx.org@4.0.0/dist/htmx.min.js"
+    integrity="sha384-BvJpBiO8Kh31EqtJe5DRIeWrHWnCGkwytKs9NKFi86Hhw96dEqdEMzZDeK9iEGTc"
+    crossorigin="anonymous"
+  ></script>
 </html>

@@ -26,11 +26,8 @@
 		</td>
 		<td><img src="{{ $element.Image }}" /></td>
 		<td><a href="{{ $element.URL }}">{{ $element.Name }}</a></td>
-		<td><pre>
-				{{ range $el := $element.Data }}
-					{{ $el }}
-				{{ end }}
-			</pre></td>
+		<td><pre>{{ range $el := $element.Data }}
+{{ $el }}{{ end }}</pre></td>
 	</tr>
 	{{ end }}
 	</tbody>

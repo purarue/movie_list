@@ -12,24 +12,24 @@
 		{{ if ne $element.Status "plan_to_watch" }}
 			<p><i>{{ print "Status: " $element.Status }}</i></p>
 		{{ end }}
-		<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>📚</small></button></a>
+		<div class="buttons">
+		<a class="contrast" href="{{ $element.URL }}"><button class="contrast">📚</button></a>
 		<button class="contrast"
 			hx-post="{{ print "mark?status=completed&id=" $element.Added }}"
 			hx-swap=outerHTML
 			hx-confirm="{{ print "Mark '" $element.Name "' watched? (this removes it from the page)" }}"
-			><small>✔️</small>
+			>✔️
 		</button>
 		<button class="contrast"
 			hx-post="{{ print "mark?status=watching&id=" $element.Added }}"
 			hx-swap=outerHTML
 			hx-confirm="{{ print "Mark '" $element.Name "' as watching?" }}"
 		>
-				<small>
 					👁️
-				</small>
 			</button>
 
-		 </div>
+			</div>
+		</div>
 		{{ else }}
 		<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
 		{{ end }}

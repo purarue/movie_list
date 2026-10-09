@@ -1,5 +1,7 @@
 I made this for myself just to keep track of things to watch, is up here as reference
 
+saves stuff into a JSON file with a mutex to avoid race conditions/corruption
+
 using htmx and go fun :)
 
 wrote not a lot of javascript and can have fun dynamic things on the page with synthetic events

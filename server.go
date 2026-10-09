@@ -6,13 +6,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
 	"sort"
 	"strconv"
 	"sync"
-	"html/template"
 	"time"
 
 	tmdb "github.com/cyruzin/golang-tmdb"
@@ -260,7 +260,91 @@ func tmdbSearch(query string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+func renderItems(lock *sync.RWMutex, datafile string) ([]byte, error) {
+	tmpl, err := template.New("items").Parse(`
+	{{ range $chunk := .Items }}
+	<div class="grid">
+		{{ range $element := $chunk }}
+		<article>
+			{{ if $element.Name }}
+			<header><img src="{{ $element.Image }}" /></header>
+			<div class="hidden" id="{{ print "watched" $element.Added }}">
+				<input name="id" value="{{ $element.Added }}" />
+				<input name="status" value="completed" />
+			</div>
+			<div>
+			<p>
+				{{ $element.Name }}
+			</p>
+			<p>
+			{{ if ne $element.Status "plan_to_watch" }}
+				<p><i>{{ print "Status: " $element.Status }}</i></p>
+			{{ end }}
+			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
+			<button class="contrast"
+				hx-include="{{ print "#watched" $element.Added }}"
+				hx-post="mark"
+				hx-swap=outerHTML
+				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
+				/><small>✔️</small>
+				</button>
+			 </div>
+			{{ else }}
+			<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
+			{{ end }}
+		</article>
+		{{ end }}
+		</div>
+	{{ end }}
+`)
+	if err != nil {
+		return nil, err
+	}
+
+	gridWidth := 4
+
+	lock.Lock()
+	defer lock.Unlock()
+	allItems, err := loadItems(datafile)
+	// filter to unwatched items, chunk into lists of 4
+	var items [][]Item
+	var chunk []Item
+	for _, it := range allItems {
+		// if we have 4 items, move values from chunk and reset
+		if len(chunk) == gridWidth {
+			items = append(items, chunk)
+			chunk = make([]Item, 0)
+		}
+		if it.Status != "completed" {
+			chunk = append(chunk, it)
+		}
+	}
+	// add last chunk if not empty
+	if len(chunk) > 0 {
+		// if there's anything, pad with extra items to make
+		// grid line up nicely
+		for {
+			if len(chunk) >= gridWidth {
+				break
+			}
+			chunk = append(chunk, Item{})
+		}
+		items = append(items, chunk)
+	}
+	if err != nil {
+		return nil, err
+	}
+	buf := &bytes.Buffer{}
+	err = tmpl.Execute(buf, map[string]any{
+		"Items": items,
+	})
+	return buf.Bytes(), nil
+}
+
 func Server(port int, favicon string) error {
+	lock := sync.RWMutex{}
+	data_filepath := "data.json"
+
 	indexData, err := index.ReadFile("index.html")
 	if err != nil {
 		return err
@@ -305,14 +389,11 @@ func Server(port int, favicon string) error {
 		w.Write(res)
 	})
 
-	lock := sync.RWMutex{}
-	filepath := "data.json"
-
 	http.HandleFunc("/add", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		lock.Lock()
 		defer lock.Unlock()
-		items, err := loadItems(filepath)
+		items, err := loadItems(data_filepath)
 		if err != nil {
 			fatalError(w, err)
 			return
@@ -325,7 +406,7 @@ func Server(port int, favicon string) error {
 			Added:  time.Now().UnixNano(),
 		})
 		fmt.Printf("%+v", items[len(items)-1])
-		err = dumpItems(filepath, items)
+		err = dumpItems(data_filepath, items)
 		if err != nil {
 			fatalError(w, err)
 			return
@@ -339,91 +420,13 @@ func Server(port int, favicon string) error {
 	http.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		// TODO: add a dropdown/another button to mark something as 'watching'?
-		tmpl, err := template.New("items").Parse(`
-	{{ range $chunk := .Items }}
-	<div class="grid">
-		{{ range $element := $chunk }}
-		<article>
-			{{ if $element.Name }}
-			<header><img src="{{ $element.Image }}" /></header>
-			<div class="hidden" id="{{ print "watched" $element.Added }}">
-				<input name="id" value="{{ $element.Added }}" />
-				<input name="status" value="completed" />
-			</div>
-			<div>
-			<p>
-				{{ $element.Name }}
-			</p>
-			<p>
-			{{ if ne $element.Status "plan_to_watch" }}
-				<p><i>{{ print "Status: " $element.Status }}</i></p>
-			{{ end }}
-			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
-			<button class="contrast"
-				hx-include="{{ print "#watched" $element.Added }}"
-				hx-post="mark"
-				hx-swap=outerHTML
-				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
-				/><small>✔️</small>
-				</button>
-			 </div>
-			{{ else }}
-			<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
-			{{ end }}
-		</article>
-		{{ end }}
-		</div>
-	{{ end }}
-`)
-		if err != nil {
-			fatalError(w, err)
-			return
-		}
-
-		gridWidth := 4
-
-		lock.Lock()
-		defer lock.Unlock()
-		allItems, err := loadItems(filepath)
-		// filter to unwatched items, chunk into lists of 4
-		var items [][]Item
-		var chunk []Item
-		for _, it := range allItems {
-			// if we have 4 items, move values from chunk and reset
-			if len(chunk) == gridWidth {
-				items = append(items, chunk)
-				chunk = make([]Item, 0)
-			}
-			if it.Status != "completed" {
-				chunk = append(chunk, it)
-			}
-		}
-		// add last chunk if not empty
-		if len(chunk) > 0 {
-			// if there's anything, pad with extra items to make
-			// grid line up nicely
-			for {
-				if len(chunk) >= gridWidth {
-					break
-				}
-				chunk = append(chunk, Item{})
-			}
-			items = append(items, chunk)
-		}
-		if err != nil {
-			fatalError(w, err)
-			return
-		}
-		buf := &bytes.Buffer{}
-		err = tmpl.Execute(buf, map[string]any{
-			"Items": items,
-		})
+		itemsBytes, err := renderItems(&lock, data_filepath)
 		if err != nil {
 			fatalError(w, err)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-		w.Write(buf.Bytes())
+		w.Write(itemsBytes)
 	})
 
 	http.HandleFunc("/mark", func(w http.ResponseWriter, r *http.Request) {
@@ -444,8 +447,7 @@ func Server(port int, favicon string) error {
 
 		lock.Lock()
 		defer lock.Unlock()
-		filepath := "data.json"
-		items, err := loadItems(filepath)
+		items, err := loadItems(data_filepath)
 		if err != nil {
 			fatalError(w, err)
 			return
@@ -460,7 +462,7 @@ func Server(port int, favicon string) error {
 					Status: status,
 					Added:  it.Added,
 				}
-				err := dumpItems(filepath, items)
+				err := dumpItems(data_filepath, items)
 				if err != nil {
 					fatalError(w, err)
 					return

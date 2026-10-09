@@ -171,6 +171,15 @@ func fatalError(w http.ResponseWriter, err error) {
 	fmt.Fprintf(w, "Error: %s", err.Error())
 }
 
+func some(vals []string) (string, error) {
+	for _, val := range vals {
+		if val != "" {
+			return val, nil
+		}
+	}
+	return "", errors.New("Missing value")
+}
+
 func tmdbSearch(query string) ([]byte, error) {
 	results, err := TmdbClient.GetSearchMulti(
 		query,
@@ -180,32 +189,20 @@ func tmdbSearch(query string) ([]byte, error) {
 		return nil, nil
 	}
 	var rendered []*searchResult
+	if len(results.Results) == 0 {
+		return nil, errors.New("No results")
+	}
+
 	for i, res := range results.Results {
 		if !(res.MediaType == "movie" || res.MediaType == "tv") {
 			continue
 		}
-		var name string
-		var date string
-		if res.Title != "" {
-			name = res.Title
-		} else if res.Name != "" {
-			name = res.Name
-		} else {
+		name, err := some([]string{res.Title, res.Name})
+		if err != nil {
 			continue
 		}
-		if res.ReleaseDate != "" {
-			date = res.ReleaseDate
-		} else if res.FirstAirDate != "" {
-			date = res.FirstAirDate
-		} else {
-			date = ""
-		}
-		var data []string
-		if res.MediaType == "movie" {
-			data = []string{"Type: Movie"}
-		} else {
-			data = []string{"Type: TV Show"}
-		}
+		data := []string{fmt.Sprintf("Type: %s", res.MediaType)}
+		date, _ := some([]string{res.ReleaseDate, res.FirstAirDate})
 		if date != "" {
 			data = append(data, fmt.Sprintf("Released: %s", date))
 		}
@@ -290,7 +287,6 @@ func Server(port int, favicon string) error {
 			w.Write(buf.Bytes())
 		})
 
-	// start server
 	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		query := r.PostFormValue("q")
@@ -331,7 +327,7 @@ func Server(port int, favicon string) error {
 		}
 		// send a trigger to the list to refetch after we add something
 		w.Header().Add("HX-TRIGGER", "itemsUpdated")
-		w.WriteHeader(http.StatusOK)
+		w.WriteHeader(http.StatusAccepted)
 		w.Write([]byte("Added!")) // replaces the button with 'Added!'
 	})
 
@@ -394,6 +390,7 @@ func Server(port int, favicon string) error {
 		fatalError(w, fmt.Errorf("Couldn't find a value that matched the ID %d", idInt64))
 	})
 
+	// start server
 	fmt.Fprintf(os.Stderr, "listening on port %d\n", port)
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }

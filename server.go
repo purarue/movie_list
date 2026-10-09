@@ -323,7 +323,6 @@ func Server(port int, favicon string) error {
 
 	http.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		// TODO: add a dropdown/another button to mark something as 'watching'?
 		if err := renderItems(&w, &lock, data_filepath); err != nil {
 			fatalError(w, err)
 			return

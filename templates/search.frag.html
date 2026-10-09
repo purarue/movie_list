@@ -1,0 +1,33 @@
+<table class="overflow-auto">
+	<thead>
+		<tr>
+			<th scope="col"></th>
+			<th scope="col">Image</th>
+			<th scope="col">Name</th>
+			<th scope="col">Info</th>
+		</tr>
+	</thead>
+	<tbody>
+		{{ range $element := .SearchResults }}
+	<tr>
+		<div id="{{ print "data" $element.Index }}" class="hidden">
+			<input name="name" value="{{ $element.Name }}" />
+			<input name="url" value="{{ $element.URL }}" />
+			<input name="image" value="{{ $element.Image }}" />
+		</div>
+		<td>
+		<button hx-post="add"
+			hx-swap=outerHTML
+			hx-confirm="{{ print "add '" $element.Name "'?"}}"
+			hx-trigger="click throttle:1000"
+			hx-include="{{ print "#data" $element.Index }}">
+				+Add
+		</button>
+		</td>
+		<td><img src="{{ $element.Image }}" /></td>
+		<td><a href="{{ $element.URL }}">{{ $element.Name }}</a></td>
+		<td>{{ $element.Data }}</td>
+	</tr>
+	{{ end }}
+	</tbody>
+</table>

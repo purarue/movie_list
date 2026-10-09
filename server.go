@@ -18,8 +18,13 @@ import (
 	tmdb "github.com/cyruzin/golang-tmdb"
 )
 
-//go:embed index.html
-var index embed.FS
+//go:embed templates/*.html
+var templateFS embed.FS
+var tmpl *template.Template
+
+func init() {
+	tmpl = template.Must(template.ParseFS(templateFS, "templates/*.html"))
+}
 
 type searchResult struct {
 	Index     int
@@ -215,43 +220,8 @@ func tmdbSearch(query string) ([]byte, error) {
 			Data:      data,
 		})
 	}
-	table, err := template.New("table").Parse(`
-	<table class="overflow-auto">
-		<thead>
-			<tr>
-				<th scope="col"></th>
-				<th scope="col">Image</th>
-				<th scope="col">Name</th>
-				<th scope="col">Info</th>
-			</tr>
-		</thead>
-		<tbody>
-			{{ range $element := .SearchResults }}
-		<tr>
-			<div id="{{ print "data" $element.Index }}" class="hidden">
-				<input name="name" value="{{ $element.Name }}" />
-				<input name="url" value="{{ $element.URL }}" />
-				<input name="image" value="{{ $element.Image }}" />
-			</div>
-			<td>
-			<button hx-post="add"
-				hx-swap=outerHTML
-				hx-confirm="{{ print "add '" $element.Name "'?"}}"
-				hx-trigger="click throttle:1000"
-				hx-include="{{ print "#data" $element.Index }}">
-					+Add
-			</button>
-			</td>
-			<td><img src="{{ $element.Image }}" /></td>
-			<td><a href="{{ $element.URL }}">{{ $element.Name }}</a></td>
-			<td>{{ $element.Data }}</td>
-		</tr>
-		{{ end }}
-		</tbody>
-	</table>
-		`)
 	buf := &bytes.Buffer{}
-	table.Execute(buf, map[string]any{
+	err = tmpl.ExecuteTemplate(buf, "search.frag.html", map[string]any{
 		"SearchResults": rendered,
 	})
 	if err != nil {
@@ -261,46 +231,6 @@ func tmdbSearch(query string) ([]byte, error) {
 }
 
 func renderItems(lock *sync.RWMutex, datafile string) ([]byte, error) {
-	tmpl, err := template.New("items").Parse(`
-	{{ range $chunk := .Items }}
-	<div class="grid">
-		{{ range $element := $chunk }}
-		<article>
-			{{ if $element.Name }}
-			<header><img src="{{ $element.Image }}" /></header>
-			<div class="hidden" id="{{ print "watched" $element.Added }}">
-				<input name="id" value="{{ $element.Added }}" />
-				<input name="status" value="completed" />
-			</div>
-			<div>
-			<p>
-				{{ $element.Name }}
-			</p>
-			<p>
-			{{ if ne $element.Status "plan_to_watch" }}
-				<p><i>{{ print "Status: " $element.Status }}</i></p>
-			{{ end }}
-			<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
-			<button class="contrast"
-				hx-include="{{ print "#watched" $element.Added }}"
-				hx-post="mark"
-				hx-swap=outerHTML
-				hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
-				/><small>✔️</small>
-				</button>
-			 </div>
-			{{ else }}
-			<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
-			{{ end }}
-		</article>
-		{{ end }}
-		</div>
-	{{ end }}
-`)
-	if err != nil {
-		return nil, err
-	}
-
 	gridWidth := 4
 
 	lock.Lock()
@@ -335,7 +265,7 @@ func renderItems(lock *sync.RWMutex, datafile string) ([]byte, error) {
 		return nil, err
 	}
 	buf := &bytes.Buffer{}
-	err = tmpl.Execute(buf, map[string]any{
+	err = tmpl.ExecuteTemplate(buf, "items.frag.html", map[string]any{
 		"Items": items,
 	})
 	return buf.Bytes(), nil
@@ -345,22 +275,12 @@ func Server(port int, favicon string) error {
 	lock := sync.RWMutex{}
 	data_filepath := "data.json"
 
-	indexData, err := index.ReadFile("index.html")
-	if err != nil {
-		return err
-	}
-
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
 			// write index to response
 			w.Header().Set("Content-Type", "text/html")
-			tmpl, err := template.New("index").Parse(string(indexData))
-			if err != nil {
-				fatalError(w, err)
-				return
-			}
 			buf := &bytes.Buffer{}
-			err = tmpl.Execute(buf, map[string]any{
+			err := tmpl.ExecuteTemplate(buf, "index.html", map[string]any{
 				"Favicon": favicon,
 			})
 			if err != nil {
@@ -405,7 +325,6 @@ func Server(port int, favicon string) error {
 			Status: "plan_to_watch",
 			Added:  time.Now().UnixNano(),
 		})
-		fmt.Printf("%+v", items[len(items)-1])
 		err = dumpItems(data_filepath, items)
 		if err != nil {
 			fatalError(w, err)

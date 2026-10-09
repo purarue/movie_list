@@ -1,0 +1,34 @@
+{{ range $chunk := .Items }}
+<div class="grid">
+	{{ range $element := $chunk }}
+	<article>
+		{{ if $element.Name }}
+		<header><img src="{{ $element.Image }}" /></header>
+		<div class="hidden" id="{{ print "watched" $element.Added }}">
+			<input name="id" value="{{ $element.Added }}" />
+			<input name="status" value="completed" />
+		</div>
+		<div>
+		<p>
+			{{ $element.Name }}
+		</p>
+		<p>
+		{{ if ne $element.Status "plan_to_watch" }}
+			<p><i>{{ print "Status: " $element.Status }}</i></p>
+		{{ end }}
+		<a class="contrast" href="{{ $element.URL }}"><button role="none" class="contrast"><small>More Info</small></button></a>
+		<button class="contrast"
+			hx-include="{{ print "#watched" $element.Added }}"
+			hx-post="mark"
+			hx-swap=outerHTML
+			hx-confirm="{{ print "Are you sure you want to mark '" $element.Name "' watched? (this removes it from the page)" }}"
+			/><small>✔️</small>
+			</button>
+		 </div>
+		{{ else }}
+		<div style="height: 100%; width: 100%; color: white; background-color: whitesmoke; border-radius: 1rem">...</div>
+		{{ end }}
+	</article>
+	{{ end }}
+	</div>
+{{ end }}

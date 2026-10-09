@@ -6,6 +6,8 @@ using htmx and go fun :)
 
 wrote not a lot of javascript and can have fun dynamic things on the page with synthetic events
 
+<img src="https://github.com/purarue/movie_list/blob/main/demo.png?raw=true" width=600 />
+
 ## Usage
 
 Compile with `go build ./cmd/movie_list/`

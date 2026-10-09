@@ -33,7 +33,7 @@ type searchResult struct {
 	Name      string
 	ID        int64
 	URL       string
-	Data      string
+	Data      []string
 }
 
 type Item struct {
@@ -200,16 +200,15 @@ func tmdbSearch(query string) ([]byte, error) {
 		} else {
 			date = ""
 		}
-		var data string
+		var data []string
 		if res.MediaType == "movie" {
-			data = "<pre>Type: Movie"
+			data = []string{"Type: Movie"}
 		} else {
-			data = "<pre>Type: TV Show"
+			data = []string{"Type: TV Show"}
 		}
 		if date != "" {
-			data = fmt.Sprintf("%s<br />Released: %s", data, date)
+			data = append(data, fmt.Sprintf("Released: %s", date))
 		}
-		data = data + "</pre>"
 		rendered = append(rendered, &searchResult{
 			Index:     i,
 			Image:     tmdb.GetImageURL(res.PosterPath, tmdb.Original),

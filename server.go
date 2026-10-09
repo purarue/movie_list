@@ -201,8 +201,7 @@ func tmdbSearch(query string, w *http.ResponseWriter) error {
 			continue
 		}
 		data := []string{fmt.Sprintf("Type: %s", res.MediaType)}
-		date, _ := some([]string{res.ReleaseDate, res.FirstAirDate})
-		if date != "" {
+		if date, _ := some([]string{res.ReleaseDate, res.FirstAirDate}); date != "" {
 			data = append(data, fmt.Sprintf("Released: %s", date))
 		}
 		rendered = append(rendered, &searchResult{
@@ -299,6 +298,7 @@ func Server(port int, favicon string) error {
 		w.Header().Set("Content-Type", "text/html")
 		lock.Lock()
 		defer lock.Unlock()
+
 		items, err := loadItems(data_filepath)
 		if err != nil {
 			fatalError(w, err)
@@ -332,14 +332,9 @@ func Server(port int, favicon string) error {
 
 	http.HandleFunc("/mark", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		id := r.FormValue("id")
-		if id == "" {
-			fatalError(w, errors.New("No id passed to mark complete"))
-			return
-		}
-		idInt, err := strconv.ParseUint(id, 10, 0)
+		idInt, err := strconv.ParseUint(r.FormValue("id"), 10, 0)
 		if err != nil {
-			fatalError(w, fmt.Errorf("Error parsing %s as integer", id))
+			fatalError(w, fmt.Errorf("Error parsing ID as integer"))
 			return
 		}
 		status := coerceStatus(r.FormValue("status"))

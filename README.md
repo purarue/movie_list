@@ -1,4 +1,4 @@
-I made this for myself just to keep track of things to watch, is up here as reference
+up here as reference
 
 saves stuff into a JSON file with a mutex to avoid race conditions/corruption
 

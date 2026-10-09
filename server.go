@@ -179,7 +179,7 @@ func some(vals []string) (string, error) {
 	return "", errors.New("Missing value")
 }
 
-func tmdbSearch(query string, w *http.ResponseWriter) error {
+func tmdbSearch(w *http.ResponseWriter, query string) error {
 	results, err := TmdbClient.GetSearchMulti(
 		query,
 		nil,
@@ -231,7 +231,7 @@ func chunkItems[T any](s []T, size int) [][]T {
 	return chunks
 }
 
-func renderItems(lock *sync.RWMutex, w *http.ResponseWriter, datafile string) error {
+func renderItems(w *http.ResponseWriter, lock *sync.RWMutex, datafile string) error {
 	lock.Lock()
 	defer lock.Unlock()
 
@@ -288,7 +288,7 @@ func Server(port int, favicon string) error {
 			w.Write([]byte("No query provided"))
 			return
 		}
-		if err := tmdbSearch(query, &w); err != nil {
+		if err := tmdbSearch(&w, query); err != nil {
 			fatalError(w, err)
 			return
 		}
@@ -324,7 +324,7 @@ func Server(port int, favicon string) error {
 	http.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		// TODO: add a dropdown/another button to mark something as 'watching'?
-		if err := renderItems(&lock, &w, data_filepath); err != nil {
+		if err := renderItems(&w, &lock, data_filepath); err != nil {
 			fatalError(w, err)
 			return
 		}

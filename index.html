@@ -34,7 +34,9 @@
 				max-width: 64px;
 			}
     </style>
-		<link rel="icon" type="image/x-icon" href="{{ .Favicon }}" />
+		{{ if .Favicon }}
+			<link rel="icon" type="image/x-icon" href="{{ .Favicon }}" />
+		{{ end }}
     <link
       href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
       rel="stylesheet"
@@ -43,7 +45,9 @@
   <body>
     <main class="container">
 			<div>
-				<img src="{{ .Favicon }}" class="logo"/>
+				{{ if .Favicon }}
+					<img src="{{ .Favicon }}" class="logo"/>
+				{{ end }}
 				<button
 					hx-on:click="document.querySelector(`#search-ui`).classList.toggle(`hidden`);"
 				>

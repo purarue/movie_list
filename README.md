@@ -1,5 +1,7 @@
 up here as reference
 
+allows you to search for and add movies/tv shows, and then mark them done when you've watched them
+
 saves stuff into a JSON file with a mutex to avoid race conditions/corruption
 
 using htmx and go fun :)

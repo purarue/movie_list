@@ -1,7 +1,6 @@
 package movie_list
 
 import (
-	"bytes"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -31,7 +30,7 @@ type searchResult struct {
 	Image     string
 	MediaType string
 	Name      string
-	ID        int64
+	ID        uint64
 	URL       string
 	Data      []string
 }
@@ -42,7 +41,7 @@ type Item struct {
 	Image   string
 	URL     string
 	Watched bool
-	Added   int64
+	Added   uint64
 }
 
 func coerceStatus(val string) string {
@@ -180,17 +179,17 @@ func some(vals []string) (string, error) {
 	return "", errors.New("Missing value")
 }
 
-func tmdbSearch(query string) ([]byte, error) {
+func tmdbSearch(query string, w *http.ResponseWriter) error {
 	results, err := TmdbClient.GetSearchMulti(
 		query,
 		nil,
 	)
 	if err != nil {
-		return nil, nil
+		return err
 	}
 	var rendered []*searchResult
 	if len(results.Results) == 0 {
-		return nil, errors.New("No results")
+		return errors.New("No results")
 	}
 
 	for i, res := range results.Results {
@@ -211,60 +210,59 @@ func tmdbSearch(query string) ([]byte, error) {
 			Image:     tmdb.GetImageURL(res.PosterPath, tmdb.Original),
 			MediaType: res.MediaType,
 			Name:      name,
-			ID:        res.ID,
+			ID:        uint64(res.ID),
 			URL:       fmt.Sprintf("https://themoviedb.org/%s/%d", res.MediaType, res.ID),
 			Data:      data,
 		})
 	}
-	buf := &bytes.Buffer{}
-	err = tmpl.ExecuteTemplate(buf, "search.frag.html", map[string]any{
+	return tmpl.ExecuteTemplate(*w, "search.frag.html", map[string]any{
 		"SearchResults": rendered,
 	})
-	if err != nil {
-		return nil, err
-	}
-	return buf.Bytes(), nil
 }
 
-func renderItems(lock *sync.RWMutex, datafile string) ([]byte, error) {
-	gridWidth := 4
+func chunkItems[T any](s []T, size int) [][]T {
+	var chunks [][]T
+	for len(s) >= size {
+		chunks = append(chunks, s[:size:size])
+		s = s[size:]
+	}
+	if len(s) > 0 {
+		chunks = append(chunks, s)
+	}
+	return chunks
+}
 
+func renderItems(lock *sync.RWMutex, w *http.ResponseWriter, datafile string) error {
 	lock.Lock()
 	defer lock.Unlock()
+
 	allItems, err := loadItems(datafile)
-	// filter to unwatched items, chunk into lists of 4
-	var items [][]Item
-	var chunk []Item
-	for _, it := range allItems {
-		// if we have 4 items, move values from chunk and reset
-		if len(chunk) == gridWidth {
-			items = append(items, chunk)
-			chunk = make([]Item, 0)
-		}
-		if it.Status != "completed" {
-			chunk = append(chunk, it)
-		}
-	}
-	// add last chunk if not empty
-	if len(chunk) > 0 {
-		// if there's anything, pad with extra items to make
-		// grid line up nicely
-		for {
-			if len(chunk) >= gridWidth {
-				break
-			}
-			chunk = append(chunk, Item{})
-		}
-		items = append(items, chunk)
-	}
 	if err != nil {
-		return nil, err
+		return err
 	}
-	buf := &bytes.Buffer{}
-	err = tmpl.ExecuteTemplate(buf, "items.frag.html", map[string]any{
-		"Items": items,
+
+	// filter to unwatched items
+	var filtered []Item
+	for _, it := range allItems {
+		if it.Status != "completed" {
+			filtered = append(filtered, it)
+		}
+	}
+
+	gridWidth := 4
+	chunks := chunkItems(filtered, gridWidth)
+	// pad empty items into the last chunk if the
+	// number of items isn't divisible by 4
+	//
+	// makes rendering on the client easier
+	if last := len(chunks) - 1; last >= 0 && len(chunks[last]) < gridWidth {
+		padding := make([]Item, gridWidth-len(chunks[last]))
+		chunks[last] = append(chunks[last], padding...)
+	}
+
+	return tmpl.ExecuteTemplate(*w, "items.frag.html", map[string]any{
+		"Items": chunks,
 	})
-	return buf.Bytes(), nil
 }
 
 func Server(port int, favicon string) error {
@@ -275,16 +273,12 @@ func Server(port int, favicon string) error {
 		func(w http.ResponseWriter, r *http.Request) {
 			// write index to response
 			w.Header().Set("Content-Type", "text/html")
-			buf := &bytes.Buffer{}
-			err := tmpl.ExecuteTemplate(buf, "index.html", map[string]any{
+			if err := tmpl.ExecuteTemplate(w, "index.html", map[string]any{
 				"Favicon": favicon,
-			})
-			if err != nil {
+			}); err != nil {
 				fatalError(w, err)
 				return
 			}
-			w.WriteHeader(http.StatusOK)
-			w.Write(buf.Bytes())
 		})
 
 	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {
@@ -295,13 +289,10 @@ func Server(port int, favicon string) error {
 			w.Write([]byte("No query provided"))
 			return
 		}
-		res, err := tmdbSearch(query)
-		if err != nil {
+		if err := tmdbSearch(query, &w); err != nil {
 			fatalError(w, err)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(res)
 	})
 
 	http.HandleFunc("/add", func(w http.ResponseWriter, r *http.Request) {
@@ -318,10 +309,9 @@ func Server(port int, favicon string) error {
 			Image:  r.FormValue("image"),
 			URL:    r.FormValue("url"),
 			Status: "plan_to_watch",
-			Added:  time.Now().UnixNano(),
+			Added:  uint64(time.Now().UnixNano()),
 		})
-		err = dumpItems(data_filepath, items)
-		if err != nil {
+		if err := dumpItems(data_filepath, items); err != nil {
 			fatalError(w, err)
 			return
 		}
@@ -334,13 +324,10 @@ func Server(port int, favicon string) error {
 	http.HandleFunc("/items", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		// TODO: add a dropdown/another button to mark something as 'watching'?
-		itemsBytes, err := renderItems(&lock, data_filepath)
-		if err != nil {
+		if err := renderItems(&lock, &w, data_filepath); err != nil {
 			fatalError(w, err)
 			return
 		}
-		w.WriteHeader(http.StatusOK)
-		w.Write(itemsBytes)
 	})
 
 	http.HandleFunc("/mark", func(w http.ResponseWriter, r *http.Request) {
@@ -350,17 +337,16 @@ func Server(port int, favicon string) error {
 			fatalError(w, errors.New("No id passed to mark complete"))
 			return
 		}
-		var idInt64 int64
-		idInt, err := strconv.Atoi(id)
+		idInt, err := strconv.ParseUint(id, 10, 0)
 		if err != nil {
-			fatalError(w, err)
+			fatalError(w, fmt.Errorf("Error parsing %s as integer", id))
 			return
 		}
-		idInt64 = int64(idInt)
 		status := coerceStatus(r.FormValue("status"))
 
 		lock.Lock()
 		defer lock.Unlock()
+
 		items, err := loadItems(data_filepath)
 		if err != nil {
 			fatalError(w, err)
@@ -368,14 +354,8 @@ func Server(port int, favicon string) error {
 		}
 
 		for ind, it := range items {
-			if it.Added == idInt64 {
-				items[ind] = Item{
-					Name:   it.Name,
-					Image:  it.Image,
-					URL:    it.URL,
-					Status: status,
-					Added:  it.Added,
-				}
+			if it.Added == idInt {
+				items[ind].Status = status
 				err := dumpItems(data_filepath, items)
 				if err != nil {
 					fatalError(w, err)
@@ -387,7 +367,7 @@ func Server(port int, favicon string) error {
 			}
 		}
 
-		fatalError(w, fmt.Errorf("Couldn't find a value that matched the ID %d", idInt64))
+		fatalError(w, fmt.Errorf("Couldn't find a value that matched the ID %d", idInt))
 	})
 
 	// start server

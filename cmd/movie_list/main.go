@@ -11,7 +11,7 @@ import (
 
 func main() {
 	port := flag.Int("port", 9006, "port to host server on")
-	favicon := flag.String("favicon", os.Getenv("MOVIE_LIST_FAVICON"), "favicon/icon for application")
+	favicon := flag.String("favicon", os.Getenv("MOVIE_LIST_FAVICON"), "favicon/icon for application [env: MOVIE_LIST_FAVICON]")
 	flag.Usage = func() {
 		fmt.Fprintln(os.Stderr, `usage: ./movie_list [FLAG...]\n
 Must set TMDB_API_KEY for search access`)

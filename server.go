@@ -1,6 +1,7 @@
 package movie_list
 
 import (
+	"bytes"
 	"embed"
 	"encoding/json"
 	"errors"
@@ -268,16 +269,17 @@ func Server(port int, favicon string) error {
 	lock := sync.RWMutex{}
 	data_filepath := "data.json"
 
+	buf := &bytes.Buffer{}
+	if err := tmpl.ExecuteTemplate(buf, "index.html", map[string]any{
+		"Favicon": favicon,
+	}); err != nil {
+		return err
+	}
+	indexBytes := buf.Bytes()
+
 	http.HandleFunc("/",
 		func(w http.ResponseWriter, r *http.Request) {
-			// write index to response
-			w.Header().Set("Content-Type", "text/html")
-			if err := tmpl.ExecuteTemplate(w, "index.html", map[string]any{
-				"Favicon": favicon,
-			}); err != nil {
-				fatalError(w, err)
-				return
-			}
+			w.Write(indexBytes)
 		})
 
 	http.HandleFunc("/search", func(w http.ResponseWriter, r *http.Request) {

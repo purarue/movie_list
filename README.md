@@ -16,6 +16,17 @@ Compile with `go build ./cmd/movie_list/`
 
 Then, run: `./movie_list`
 
+```
+usage: ./movie_list [FLAG...]
+
+Must set TMDB_API_KEY for search access
+
+  -favicon string
+    	favicon/icon for application [env: MOVIE_LIST_FAVICON]
+  -port int
+    	port to host server on (default 9006)
+```
+
 ## Config
 
 If `MOVIE_LIST_FAVICON` is set, uses that URL as the favicon/icon in the top left.
